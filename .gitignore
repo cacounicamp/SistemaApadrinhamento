@@ -1,0 +1,5 @@
+*.json
+*.log
+*.out
+*.aux
+__pycache__/*
