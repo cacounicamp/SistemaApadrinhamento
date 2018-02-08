@@ -8,6 +8,9 @@ NOME_LISTA_VETERANXS = 'veteranxs'
 NOME_LISTA_INGRESSANTES = 'ingressantes'
 NOME_LISTA_APADRINHAMENTOS = 'apadrinhamentos'
 
+NOME_ID_VETERANXS = 'ultimo_id_veteranxs'
+NOME_ID_INGRESSANTES = 'ultimo_id_ingressantes'
+
 NOME_CURSO_CC = 'Ciência de computação'
 # CC, na verdade, é 'dA computação', eu errei no formulário
 NOME_CURSO_EC = 'Engenharia de computação'
@@ -67,7 +70,9 @@ class Database:
         # Definimos o banco de dados padrão
         self.database = {
             NOME_LISTA_VETERANXS: [],
+            NOME_ID_VETERANXS: 0,
             NOME_LISTA_INGRESSANTES: [],
+            NOME_ID_INGRESSANTES: 0,
             NOME_LISTA_APADRINHAMENTOS: []
         }
 
@@ -277,7 +282,9 @@ class MenuAdicionarVeteranxs(Menu):
 
             if veteranx == None:
                 # Se não há existente, criamos
-                respostas_dict['id'] = Veteranx.ultimo_id + 1
+                ultimo_id = database.database[NOME_ID_INGRESSANTES] + 1
+                respostas_dict['id'] = ultimo_id
+                database.database[NOME_ID_INGRESSANTES] = ultimo_id
                 veteranx = Veteranx(respostas_dict)
                 # Adicionamos ao banco de dados
                 database.adicionar_estudante(NOME_LISTA_VETERANXS, veteranx)
@@ -361,7 +368,9 @@ class MenuAdicionarIngressantes(Menu):
 
             if ingressante == None:
                 # Se não há existente, criamos
-                respostas_dict['id'] = Ingressante.ultimo_id + 1
+                ultimo_id = database.database[NOME_ID_INGRESSANTES] + 1
+                respostas_dict['id'] = ultimo_id
+                database.database[NOME_ID_INGRESSANTES] = ultimo_id
                 ingressante = Ingressante(respostas_dict)
                 # Adicionamos ao banco de dados
                 database.adicionar_estudante(NOME_LISTA_VETERANXS, ingressante)

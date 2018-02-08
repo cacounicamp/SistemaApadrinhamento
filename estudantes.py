@@ -34,13 +34,8 @@ class Veteranx(Estudante):
     """Veteranx é a estrutura Estudante com a variável do número de
     ingressantes que deseja apadrinhar e apelido"""
 
-    ultimo_id = 0
-
     def __init__(self, dict_json):
         super().__init__(dict_json)
-        # Atualizamos o último id
-        if self.id > Veteranx.ultimo_id:
-            Veteranx.ultimo_id = self.id
 
     def atualizar(self, dict_atualizado):
         super().atualizar(dict_atualizado)
@@ -59,10 +54,5 @@ class Ingressante(Estudante):
     """Ingressante é a estrutura Estudante que atualiza a variável de último
     id"""
 
-    ultimo_id = 0
-
     def __init__(self, dict_json):
         super().__init__(dict_json)
-        # Atualizamos o último id
-        if self.id > Ingressante.ultimo_id:
-            Ingressante.ultimo_id = self.id
