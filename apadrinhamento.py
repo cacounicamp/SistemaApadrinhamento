@@ -8,6 +8,10 @@ NOME_LISTA_VETERANXS = 'veteranxs'
 NOME_LISTA_INGRESSANTES = 'ingressantes'
 NOME_LISTA_APADRINHAMENTOS = 'apadrinhamentos'
 
+NOME_CURSO_CC = 'Ciência de computação'
+# CC, na verdade, é 'dA computação', eu errei no formulário
+NOME_CURSO_EC = 'Engenharia de computação'
+
 
 def estudante_para_dicionario(database, nome_lista):
     """Função que transforma a lista de estudantes em uma estrutura compatível
@@ -157,20 +161,18 @@ class Menu:
 
 class MenuPrincipal(Menu):
     def __init__(self):
-        super().__init__(range(-1, 9))
+        super().__init__(range(-1, 7 + 1))
 
     def imprimir(self):
         print("1. Listar madrinha(s) ou padrinho(s)")
         print("2. Adicionar madrinha(s) ou padrinho(s)")
-        print("3. Remover madrinha(s) ou padrinho(s)")
         print()
-        print("4. Listar caloura(s) ou calouro(s)")
-        print("5. Adicionar caloura(s) ou calouro(s)")
-        print("6. Remover caloura(s) ou calouro(s)")
+        print("3. Listar caloura(s) ou calouro(s)")
+        print("4. Adicionar caloura(s) ou calouro(s) da CC")
+        print("5. Adicionar caloura(s) ou calouro(s) da EC")
         print()
-        print("7. Listar apadrinhamentos")
-        print("8. Apadrinhar automaticamente")
-        print("9. Remover apadrinhamento(s)")
+        print("6. Listar apadrinhamentos")
+        print("7. Apadrinhar automaticamente")
         print()
         print(" 0. Salvar e sair")
         print("-1. Sair sem salvar")
@@ -188,8 +190,16 @@ class MenuPrincipal(Menu):
             MenuListarEstudantes(NOME_LISTA_VETERANXS)
         elif opcao == 2:
             MenuAdicionarVeteranxs()
-        elif opcao == 4:
+        elif opcao == 3:
             MenuListarEstudantes(NOME_LISTA_INGRESSANTES)
+        elif opcao == 4:
+            MenuAdicionarIngressantes(NOME_CURSO_CC)
+        elif opcao == 5:
+            MenuAdicionarIngressantes(NOME_CURSO_EC)
+        elif opcao == 6:
+            MenuListarApadrinhamentos()
+        elif opcao == 7:
+            MenuApadrinhar()
 
 
 def data_do_formulario(string):
@@ -198,10 +208,26 @@ def data_do_formulario(string):
     return datetime.strptime(string, '%d/%m/%Y %H:%M:%S')
 
 
+def obter_num_ingressantes(string):
+    if string == 'Até uma':
+        return 1
+    elif string == 'Entre uma e duas':
+        return 2
+    elif string == 'Entre uma e três':
+        return 3
+    elif string == 'Entre uma e quatro':
+        return 4
+    elif string == 'Quantas estiverem sem madrinha ou padrinho':
+        return -1
+    else:
+        print('Número de ingressantes não interpretado: {}'.format(string))
+        return 0
+
+
 class MenuAdicionarVeteranxs(Menu):
     def __init__(self):
         # Chamamos o loop
-        super().__init__(range(-1, 1))
+        super().__init__(range(0, 1 + 1))
 
     def imprimir(self):
         print('Copie e cole as entradas de estudantes abaixo. Será lido linha '
@@ -243,8 +269,7 @@ class MenuAdicionarVeteranxs(Menu):
                 "telefone": respostas[7],
                 "facebook_link": respostas[8],
                 "apelido": respostas[3],
-                "numero_ingressantes":
-                    MenuAdicionarVeteranxs.obter_num_ingressantes(respostas[6])
+                "numero_ingressantes": obter_num_ingressantes(respostas[6])
             }
 
             # Buscamos algum estudante-objeto já existente
@@ -281,26 +306,95 @@ class MenuAdicionarVeteranxs(Menu):
         if opcao == 0:
             self.saindo = True
 
-    def obter_num_ingressantes(string):
-        if string == 'Até uma':
-            return 1
-        elif string == 'Entre uma e duas':
-            return 2
-        elif string == 'Entre uma e três':
-            return 3
-        elif string == 'Entre uma e quatro':
-            return 4
-        elif string == 'Quantas estiverem sem madrinha ou padrinho':
-            return -1
-        else:
-            print('Número de ingressantes não interpretado: {}'.format(string))
-            return 0
+
+class MenuAdicionarIngressantes(Menu):
+    def __init__(self, curso):
+        self.curso = curso
+        # Chamamos o loop
+        super().__init__(range(0, 1 + 1))
+
+    def imprimir(self):
+        print('Copie e cole as entradas de estudantes abaixo. Será lido linha '
+        'por linha. Qualquer linha que não contenha o número de colunas '
+        'esperado parará o programa.')
+
+        adicionados = 0
+        atualizados = 0
+
+        while True:
+            # Lemos uma linha de entrada. Deve estar dividida por 'tab' (\t)
+            # pois é uma simples cópia da planilha.
+            lido = input()
+            respostas = lido.split('\t')
+
+            # Verificamos as colunas da resposta com a planilha
+            if len(respostas) != 9:
+                while True:
+                    trava = input('Trava de segurança para cópia e cola, '
+                    'digite -1: ')
+
+                    # Apenas cancelamos se terminar com '-1', digitado pelo
+                    # usuário.
+                    if trava.endswith('-1'):
+                        break
+
+                # Avisamos o possível erro
+                print('\n\nPode ter ocorrido um erro ao tentar interpretar '
+                'input "{}"'.format(lido))
+                break
+
+            # Criamos o estudante-dicionário
+            respostas_dict = {
+                "data_formulario": respostas[0],
+                "nome": respostas[2],
+                "genero": respostas[3],
+                "email": respostas[1],
+                "telefone": respostas[4],
+                "facebook_link": respostas[5],
+                "curso": self.curso
+            }
+
+            # Buscamos algum estudante-objeto já existente
+            ingressante = database.buscar(
+                NOME_LISTA_INGRESSANTES, respostas_dict
+            )
+
+            if ingressante == None:
+                # Se não há existente, criamos
+                respostas_dict['id'] = Ingressante.ultimo_id + 1
+                ingressante = Ingressante(respostas_dict)
+                # Adicionamos ao banco de dados
+                database.adicionar_estudante(NOME_LISTA_VETERANXS, ingressante)
+                adicionados += 1
+            else:
+                # Confiamos que não é um duplicate e atualizamos se a data for
+                # maior :)
+                data_database = data_do_formulario(ingressante.data_formulario)
+                data_atual = data_do_formulario(
+                    respostas_dict['data_formulario']
+                )
+
+                # Vereficamos se precisamos atualizar
+                if data_database < data_atual:
+                    ingressante.atualizar(respostas_dict)
+                    atualizados += 1
+
+        print('Foram reconhecidos {} novos estudantes e {} atualizações.'
+        .format(adicionados, atualizados))
+        print()
+        print('1. Adicionar mais ingressantes de mesmo curso')
+        print('0. Voltar')
+        print()
+
+    def resolver_opcao(self, opcao):
+        if opcao == 0:
+            self.saindo = True
 
 
 class MenuListarEstudantes(Menu):
     def __init__(self, nome_lista):
         self.nome_lista = nome_lista
-        super().__init__(range(1, 3))
+        super().__init__(range(1, 4 + 1))
 
     def imprimir(self):
         print('Id\tNome')
@@ -308,8 +402,9 @@ class MenuListarEstudantes(Menu):
             print('{}\t{}'.format(estudante.id, estudante.nome))
         print('\n\n')
         print('1. Voltar')
-        print('2. Adicionar')
-        print('3. Remover')
+        print('2. Adicionar veteranas(os)')
+        print('3. Adicionar calouras(os) da CC')
+        print('4. Adicionar calouras(os) da EC')
         print()
 
     def resolver_opcao(self, opcao):
@@ -317,6 +412,33 @@ class MenuListarEstudantes(Menu):
             self.saindo = True
         elif opcao == 2:
             MenuAdicionarVeteranxs()
+        elif opcao == 3:
+            MenuAdicionarIngressantes(NOME_CURSO_CC)
+        elif opcao == 4:
+            MenuAdicionarIngressantes(NOME_CURSO_EC)
+
+
+class MenuListarApadrinhamentos(Menu):
+    def __init__(self):
+        super().__init__([0])
+
+    def imprimir(self):
+        print('Digite "0" para sair.')
+
+    def resolver_opcao(self, opcao):
+        self.saindo = True
+
+
+class MenuApadrinhar(Menu):
+    def __init__(self):
+        super().__init__([0])
+
+    def imprimir(self):
+        print('Digite "0" para sair.')
+
+    def resolver_opcao(self, opcao):
+        self.saindo = True
+
 
 # Aqui começa a execução do programa
 print("=== Sistema de Apadrinhamento v0.1 -- Rafael Sartori ===\n")
