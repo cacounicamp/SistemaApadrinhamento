@@ -3,3 +3,5 @@
 *.out
 *.aux
 __pycache__/*
+*.dblite
+*.fls
