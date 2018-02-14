@@ -4,13 +4,15 @@ class Estudante:
     def __init__(self, dict_json):
         # Recebemos o dicionário que representa apenas uma pessoa
         self.id = dict_json['id']
-        # Essas características não devem mudar entre respostas.. eu acho?
-        self.nome = dict_json['nome']
-        self.genero = dict_json['genero']
-        self.curso = dict_json['curso']
         self.atualizar(dict_json)
 
     def atualizar(self, dict_atualizado):
+        # Essas características não devem mudar entre respostas.. eu acho?
+        # Vou deixar aqui para aqueles que clicaram ou digitaram errado
+        self.nome = dict_atualizado['nome']
+        self.genero = dict_atualizado['genero']
+        self.curso = dict_atualizado['curso']
+        # Essas podem e/ou devem mudar
         self.data_formulario = dict_atualizado['data_formulario']
         self.email = dict_atualizado['email']
         self.telefone = dict_atualizado['telefone']

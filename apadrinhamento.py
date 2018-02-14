@@ -93,7 +93,8 @@ def dicionario_para_estudante(database, nome_lista):
 
 
 def limpar_telefone(string):
-    return string.replace('(', '').replace(')', '').replace(' ', '')
+    return string.replace('(', '').replace(')', '').replace(' ', '')\
+    .replace('+', '')
 
 
 class Database:
@@ -142,6 +143,14 @@ class Database:
             # Transformamos o dicionário de dicionários em pessoas
             dicionario_para_estudante(self.database, NOME_DICT_VETERANXS)
             dicionario_para_estudante(self.database, NOME_DICT_INGRESSANTES)
+
+            apadrinhamentos_ = self.database.pop(NOME_DICT_APADRINHAMENTOS)
+            self.database[NOME_DICT_APADRINHAMENTOS] = {}
+
+            # Transformamos a string que representa o id em número
+            for id_string, apadrinhados in apadrinhamentos_.items():
+                id_ = int(id_string)
+                self.database[NOME_DICT_APADRINHAMENTOS][id_] = apadrinhados
 
     def adicionar_estudante(self, nome_lista, estudante):
         self.database[nome_lista][estudante.id] = estudante
@@ -205,7 +214,7 @@ class Menu:
 
 class MenuPrincipal(Menu):
     def __init__(self):
-        super().__init__(range(-1, 7 + 1))
+        super().__init__(range(-1, 8 + 1))
 
     def imprimir(self):
         print("1. Listar madrinha(s) ou padrinho(s)")
@@ -217,11 +226,13 @@ class MenuPrincipal(Menu):
         print()
         print("6. Listar apadrinhamentos")
         print("7. Apadrinhar automaticamente")
+        print("8. Enviar e-mail de apadrinhamento")
         print()
         print(" 0. Salvar e sair")
         print("-1. Sair sem salvar")
         print()
-        print("Obs: a senha do wi-fi da Letícia é 'judite69'")
+        print('"é um negocio oval\nparece uma uva, faz bluf bluf"')
+        print("\t\tT., Letícia")
         print()
 
     def resolver_opcao(self, opcao):
@@ -244,6 +255,8 @@ class MenuPrincipal(Menu):
             MenuListarApadrinhamentos()
         elif opcao == 7:
             MenuApadrinhar()
+        elif opcao == 8:
+            MenuEmailApadrinhamento()
 
 
 def data_do_formulario(string):
@@ -321,9 +334,9 @@ class MenuAdicionarVeteranxs(Menu):
 
             if veteranx == None:
                 # Se não há existente, criamos
-                ultimo_id = database.database[NOME_ID_INGRESSANTES] + 1
+                ultimo_id = database.database[NOME_ID_VETERANXS] + 1
                 respostas_dict['id'] = ultimo_id
-                database.database[NOME_ID_INGRESSANTES] = ultimo_id
+                database.database[NOME_ID_VETERANXS] = ultimo_id
                 veteranx = Veteranx(respostas_dict)
                 # Adicionamos ao banco de dados
                 database.adicionar_estudante(NOME_DICT_VETERANXS, veteranx)
@@ -374,7 +387,7 @@ class MenuAdicionarIngressantes(Menu):
             respostas = lido.split('\t')
 
             # Verificamos as colunas da resposta com a planilha
-            if len(respostas) != 9:
+            if len(respostas) != 6:
                 while True:
                     trava = input('Trava de segurança para cópia e cola, '
                     'digite -1: ')
@@ -412,7 +425,9 @@ class MenuAdicionarIngressantes(Menu):
                 database.database[NOME_ID_INGRESSANTES] = ultimo_id
                 ingressante = Ingressante(respostas_dict)
                 # Adicionamos ao banco de dados
-                database.adicionar_estudante(NOME_DICT_VETERANXS, ingressante)
+                database.adicionar_estudante(
+                    NOME_DICT_INGRESSANTES, ingressante
+                )
                 adicionados += 1
             else:
                 # Confiamos que não é um duplicate e atualizamos se a data for
@@ -468,13 +483,33 @@ class MenuListarEstudantes(Menu):
 
 class MenuListarApadrinhamentos(Menu):
     def __init__(self):
-        super().__init__([0])
+        super().__init__([0, 1])
 
     def imprimir(self):
-        print('Digite "0" para sair.')
+        apadrinhamentos = database.database[NOME_DICT_APADRINHAMENTOS]
+        veteranxs       = database.database[NOME_DICT_VETERANXS]
+        ingressantes    = database.database[NOME_DICT_INGRESSANTES]
+
+        # Imprimimos tudo
+        for veteranx_id, ingressantes_ids in apadrinhamentos.items():
+            veteranx = veteranxs[veteranx_id]
+            print('\n{}\t1 a {}\t{}'.format(
+                veteranx_id, veteranx.numero_ingressantes, veteranx.nome
+            ))
+            for ingressante_id in ingressantes_ids:
+                ingressante = ingressantes[ingressante_id]
+                print('\t{}\t{}'.format(ingressante_id, ingressante.nome))
+
+        # OBS: isso pode causar um stack overflow (pois MenuApadrinhar também
+        # possui uma ligação para MenuListarApadrinhamentos)
+        print('\n\n')
+        print('1. Apadrinhar')
+        print('0. Voltar')
 
     def resolver_opcao(self, opcao):
         self.saindo = True
+        if opcao == 1:
+            MenuApadrinhar()
 
 
 class MenuApadrinhar(Menu):
@@ -533,12 +568,22 @@ class MenuApadrinhar(Menu):
         random.shuffle(ing_gen_outros)
 
         # Para cada lista, fazemos o apadrinhamento
-        MenuListarApadrinhamentos.apadrinhar(vet_gen_masc, ing_gen_masc)
-        MenuListarApadrinhamentos.apadrinhar(vet_gen_fem, ing_gen_fem)
-        MenuListarApadrinhamentos.apadrinhar(vet_gen_outros, ing_gen_outros)
+        numero_apadrinhado = 0
+        numero_apadrinhado += MenuApadrinhar.apadrinhar(
+            vet_gen_masc, ing_gen_masc
+        )
+        numero_apadrinhado += MenuApadrinhar.apadrinhar(
+            vet_gen_fem, ing_gen_fem
+        )
+        numero_apadrinhado += MenuApadrinhar.apadrinhar(
+            vet_gen_outros, ing_gen_outros
+        )
 
-        print('\n\nDigite "0" para sair.')
-        print('Digite "1" para ver a lista de apadrinhamentos.')
+        print('{} ingressantes foram apadrinhados\n\n'.format(
+            numero_apadrinhado
+        ))
+        print('1. Ver lista de apadrinhamento')
+        print('0. Voltar')
 
     def resolver_opcao(self, opcao):
         self.saindo = True
@@ -553,10 +598,23 @@ class MenuApadrinhar(Menu):
         ing_ec = []
         ing_cc = []
 
+        apadrinhamentos = database.database[NOME_DICT_APADRINHAMENTOS]
+
         # Separamos veteranxs por curso
         for veteranx in lista_vet:
             # Conferimos se x veteranx já tem muitas(os) afilhadas(os)
-
+            if veteranx.numero_ingressantes > 0:
+                atual = len(apadrinhamentos.get(veteranx.id, []))
+                limite = veteranx.numero_ingressantes
+                if atual > limite:
+                    print('{} ({}) possui muitos afilhados'.format(
+                        veteranx.nome, veteranx.id
+                        ))
+                    # Pulamos
+                    continue
+                elif atual == limite:
+                    # Pulamos sem avisar
+                    continue
 
             if veteranx.curso == NOME_CURSO_CC:
                 vet_cc.append(veteranx)
@@ -570,7 +628,17 @@ class MenuApadrinhar(Menu):
         # Separamos ingressantes por curso
         for ingressante in lista_ing:
             # Conferimos se x ingressante já tem madrinha ou padrinho
+            possui = False
+            for apadrinhados in apadrinhamentos.values():
+                # Se o seu id está em alguma lista de pessoas apadrinhadas,
+                # marcamos
+                if ingressante.id in apadrinhados:
+                    possui = True
+                    break
 
+            # Pulamos os que já possuem madrinha ou padrinho
+            if possui:
+                continue
 
             if ingressante.curso == NOME_CURSO_CC:
                 ing_cc.append(ingressante)
@@ -582,22 +650,93 @@ class MenuApadrinhar(Menu):
                 ))
 
         # Apadrinhamos cada curso
-        MenuApadrinhar.apadrinhar_curso(vet_cc, ing_cc)
-        MenuApadrinhar.apadrinhar_curso(vet_ec, ing_ec)
+        numero_apadrinhado = 0
+        numero_apadrinhado += MenuApadrinhar.apadrinhar_curso(vet_cc, ing_cc)
+        numero_apadrinhado += MenuApadrinhar.apadrinhar_curso(vet_ec, ing_ec)
+        return numero_apadrinhado
 
-    def apadrinhar_curso(vet, ing):
+    def apadrinhar_curso(veteranxs, ingressantes):
+        numero_apadrinhado = 0
+        apadrinhamentos = database.database[NOME_DICT_APADRINHAMENTOS]
         # Seja para CC ou EC
 
         # Conferimos se é possível fazer pares (se não, deixamos para o
         # usuário)
-        if (len(vet) == 0 and len(ing) > 0):
+        if (len(veteranxs) == 0 and len(ingressantes) > 0):
             print('Não há veteranxs disponíveis para:')
-            for ingressante in ing:
+            for ingressante in ingressantes:
                 print('{}\t{}'.format(ingressante.id, ingressante.nome))
             print('\n')
-            return
+            return 0
 
         # Fazemos os pares
+        for ingressante in ingressantes:
+            # Pegamos x veteranx que quer possuir um(a) afilhado(a) mas possui
+            # a menor quantidade de afilhadas(os) na lista
+            # Dessa forma, a distribuição fica igualitária
+            # OBS: 'veteranxs' foi desorganizada no passado
+            veteranx = None
+            menor_quantidade = None
+            for veteranx_ in veteranxs:
+                quantidade = len(apadrinhamentos.get(veteranx_.id, []))
+                if (menor_quantidade is None or quantidade < menor_quantidade):
+                    menor_quantidade = quantidade
+                    veteranx = veteranx_
+
+            # Se veteranx é nulo, significa que não há veteranxs suficientes
+            if veteranx is None:
+                print('Pessoa sem apadrinhamento: {}'.format(ingressante.nome))
+                continue
+
+            # Agora que temos um(a) veteranx, temos que removê-la(o) da lista
+            veteranxs.remove(veteranx)
+
+            # Adicionamos o ingressante como padrinho
+            apadrinhados = apadrinhamentos.get(veteranx.id, [])
+            apadrinhados.append(ingressante.id)
+            apadrinhamentos[veteranx.id] = apadrinhados
+            numero_apadrinhado += 1
+
+            # Verificamos se o veteranx ainda pode possuir mais afilhadas(os)
+            if (veteranx.numero_ingressantes < 0 or
+                veteranx.numero_ingressantes > len(apadrinhados)):
+                # Adicionamos e reorganizamos
+                veteranxs.append(veteranx)
+                random.shuffle(veteranxs)
+
+        return numero_apadrinhado
+
+
+class MenuEmailApadrinhamento(Menu):
+    def __init__(self):
+        super().__init__([0])
+
+    def imprimir(self):
+        print('Você precisa escrever um arquivo modelo para o e-mail. As '
+        'seguintes palavras-chave serão substituídas:')
+        print('\tPalavra\t\tSubstituição no caso de masculino e feminino')
+        print('"{info_veterana}"\t->\tLista de dados da madrinha/padrinho')
+        print('"{info_afilhada}"\t->\tLista de dados de afilhadas(os)')
+        print('"{madrinha}"\t\t->\t"padrinho" ou "madrinha"')
+        print('"{afilhada}"\t\t->\t"afilhado" ou "afilhada"')
+        print('"{veterana}"\t\t->\t"veterano" ou "veterana"')
+        print('"{caloura}"\t\t->\t"calouro" ou "caloura"')
+        print('"{nome}"\t\t->\tnome do padrinho, madrinha, afilhado ou afilhada')
+        print('"{ela}"\t\t\t->\t"ele" ou "ela"')
+        print('"{elas}"\t\t->\t"eles" ou "elas"')
+        print('"{ela(s)}"\t\t->\t"ele"/"eles" ou "ela"/"elas"')
+        print('"{sua}"\t\t\t->\t"seu" ou "sua"')
+        print('"{suas}"\t\t->\t"seus" ou "suas"')
+        print('"{sua(s)}"\t\t->\t"seu"/"seus" ou "sua"/"suas"')
+        print('"{uma}"\t\t\t->\t"um" ou "uma"')
+        print('"{a}"\t\t\t->\t"o" ou "a"')
+        print('"{as}"\t\t\t->\t"os" ou "as"')
+        print('"{a(s)}"\t\t->\t"o"/"os" ou "a"/"as"')
+        print('\n\n')
+        print('0. Voltar')
+
+    def resolver_opcao(self, opcao):
+        self.saindo = True
 
 
 # Aqui começa a execução do programa
