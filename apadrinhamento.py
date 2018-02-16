@@ -1,6 +1,7 @@
 import json
 import random
 import os
+import io
 import smtplib
 from email.message import EmailMessage
 from datetime import datetime
@@ -24,8 +25,12 @@ NOME_GENERO_OUTROS = 'Outro'
 
 
 def enviar_email(sender, password, recipient, subject, body):
-    """Apenas copiei e modifiquei de
-    https://stackoverflow.com/questions/10147455/ """
+    """
+    Apenas copiei e modifiquei de https://stackoverflow.com/questions/10147455/
+
+    Para mensagens que fogem dos caracteres ASCII, deve-se usar a string de 3
+    aspas.
+    """
 
     # Preparamos o e-mail
     if type(recipient) is not list:
@@ -98,8 +103,8 @@ def limpar_telefone(string):
 
 
 class Database:
-    """Classe que armazena todas as funções de leitura, gravação, adição e
-    remoção de estudantes"""
+    """Classe que armazena todas as funções de leitura, gravação e adição de
+    estudantes através de um banco de dados simples em JSON"""
     # Definimos o nome do arquivo do banco de dados
     FILE_NAME = 'sist_apadrinhamento.json'
 
@@ -121,9 +126,13 @@ class Database:
             self.ler_banco()
 
     def salvar_banco(self):
-        """Esta função IRÁ quebrar o banco de dados pois transforma o
-        dicionário de estudantes em uma lista. Para arrumar, utilize ler_banco
-        ou transforme de volta"""
+        """Salva o banco de dados em um arquivo JSON, transformando estudantes
+        em um dicionário com todas as informações relevantes.
+
+        Esta função modifica o banco de dados na memória, o que significa
+        que, se for utilizá-la durante a execução do programa, deverá
+        transformar de volta os estudantes-dicionários para
+        estudantes-objeto"""
         with open(self.FILE_NAME, 'w') as database_file:
             # Transformamos o dicionário (id, estudante objeto) em uma lista de
             # estudantes-dicionário
@@ -136,6 +145,8 @@ class Database:
             )
 
     def ler_banco(self):
+        """Lê o arquivo JSON para a memória, transformando os dicionários que
+        representam os estudantes em estudantes-objeto."""
         with open(self.FILE_NAME, 'r') as database_file:
             # Ler o arquivo JSON para o dicionário do banco de dados
             self.database = json.load(database_file)
@@ -152,11 +163,17 @@ class Database:
                 id_ = int(id_string)
                 self.database[NOME_DICT_APADRINHAMENTOS][id_] = apadrinhados
 
-    def adicionar_estudante(self, nome_lista, estudante):
-        self.database[nome_lista][estudante.id] = estudante
+    def adicionar_estudante(self, nome_dict, estudante):
+        """Adiciona um estudante ao dicionário de estudantes.
+        Defini no topo o nome dos dicionários:
+        NOME_DICT_VETERANXS e NOME_DICT_INGRESSANTES"""
+        self.database[nome_dict][estudante.id] = estudante
 
-    def buscar(self, nome_lista, respostas_dict):
-        for estudante in self.database[nome_lista].values():
+    def buscar(self, nome_dict, respostas_dict):
+        """Busca se há um estudante duplicado (definimos a igualdade como
+        número de telefone ou e-mail, já que pessoas podem colocar apenas o
+        primeiro nome) no dicionário que armazena os estudantes."""
+        for estudante in self.database[nome_dict].values():
             # Conferimos se há alguma resposta igual (email, telefone)
             # OBS: nome não deve importa pois nem todos colocaram o nome
             # completo
@@ -175,15 +192,14 @@ class Database:
 
 
 class Menu:
-    """
-    Classe de Menu, cria um loop infinito de opções a serem validadas.
+    """Classe de Menu, cria um loop infinito de opções a serem validadas.
 
     * Deve-se definir a função imprimir() e resolver_opcao(opcao).
     * A lista de opções válidas 'opcoes_validas' deve ser definida pelos
-    inteiros a serem entrados pelo usuário.
-    """
+    inteiros a serem entrados pelo usuário."""
 
     def __init__(self, opcoes_validas):
+        """Acredito que fazer um loop na __init__ não seja a melhor coisa..."""
         self.saindo = False
 
         # Enquanto a resposta não define a saída do menu, continuamos sem parar
@@ -260,12 +276,14 @@ class MenuPrincipal(Menu):
 
 
 def data_do_formulario(string):
-    # Transforma a string que representa o horário de registro do formulário
-    # usando o formato de tempo do formulário do Google
+    """Transforma a string que representa o horário no formulário do Google em
+    um objeto datetime de Python, assim podemos comparar 2 datas"""
     return datetime.strptime(string, '%d/%m/%Y %H:%M:%S')
 
 
 def obter_num_ingressantes(string):
+    """Transforma em inteiro o número máximo de ingressantes que x veteranx
+    quer adotar. -1 significa infinito."""
     if string == 'Até uma':
         return 1
     elif string == 'Entre uma e duas':
@@ -527,6 +545,7 @@ class MenuApadrinhar(Menu):
         ing_gen_fem = []
         ing_gen_outros = []
 
+        # Separamos veteranxs por gênero
         for veteranx in database.database[NOME_DICT_VETERANXS].values():
             if veteranx.genero == NOME_GENERO_MASC:
                 vet_gen_masc.append(veteranx)
@@ -543,6 +562,7 @@ class MenuApadrinhar(Menu):
             len(vet_gen_masc), len(vet_gen_fem), len(vet_gen_outros))
         )
 
+        # Separamos ingressantes por gênero
         for ingressante in database.database[NOME_DICT_INGRESSANTES].values():
             if ingressante.genero == NOME_GENERO_MASC:
                 ing_gen_masc.append(ingressante)
@@ -709,34 +729,75 @@ class MenuApadrinhar(Menu):
 
 class MenuEmailApadrinhamento(Menu):
     def __init__(self):
-        super().__init__([0])
+        super().__init__(range(0, 2 + 1))
 
     def imprimir(self):
+        # OBS: marquei com '#' o que eu utilizei nas mensagens que preparei
+
         print('Você precisa escrever um arquivo modelo para o e-mail. As '
         'seguintes palavras-chave serão substituídas:')
         print('\tPalavra\t\tSubstituição no caso de masculino e feminino')
         print('"{info_veterana}"\t->\tLista de dados da madrinha/padrinho')
-        print('"{info_afilhada}"\t->\tLista de dados de afilhadas(os)')
-        print('"{madrinha}"\t\t->\t"padrinho" ou "madrinha"')
+        print('"{info_afilhada}"\t->\tLista de dados de afilhadas(os)')#
+        print('"{madrinha}"\t\t->\t"padrinho" ou "madrinha"')#
         print('"{afilhada}"\t\t->\t"afilhado" ou "afilhada"')
+        print('"{afilhada(s)}"\t\t->\t"afilhado"/"afilhados" ou "afilhada"/'
+        '"afilhadas"')#
         print('"{veterana}"\t\t->\t"veterano" ou "veterana"')
         print('"{caloura}"\t\t->\t"calouro" ou "caloura"')
-        print('"{nome}"\t\t->\tnome do padrinho, madrinha, afilhado ou afilhada')
+        print('"{nome}"\t\t->\tnome do padrinho, madrinha, afilhado ou '
+        'afilhada')#
         print('"{ela}"\t\t\t->\t"ele" ou "ela"')
         print('"{elas}"\t\t->\t"eles" ou "elas"')
         print('"{ela(s)}"\t\t->\t"ele"/"eles" ou "ela"/"elas"')
         print('"{sua}"\t\t\t->\t"seu" ou "sua"')
         print('"{suas}"\t\t->\t"seus" ou "suas"')
-        print('"{sua(s)}"\t\t->\t"seu"/"seus" ou "sua"/"suas"')
+        print('"{sua(s)}"\t\t->\t"seu"/"seus" ou "sua"/"suas"')#
         print('"{uma}"\t\t\t->\t"um" ou "uma"')
         print('"{a}"\t\t\t->\t"o" ou "a"')
+        print('"{ao}"\t\t\t->\t"ao" ou "à"')
+        print('"{aos}"\t\t\t->\t"aos" ou "às"')
+        print('"{ao(s)}"\t\t\t->\t"ao"/"aos" ou "à"/"às"')#
         print('"{as}"\t\t\t->\t"os" ou "as"')
         print('"{a(s)}"\t\t->\t"o"/"os" ou "a"/"as"')
         print('\n\n')
+        print('1. Enviar com substituições para veteranxs (com informações de '
+        'suas/seus afilhadas(os))')
+        print('2. Enviar com substituições para ingressantes (com informações '
+        'de sua/seu madrinha/padrinho)')
+        print()
         print('0. Voltar')
 
     def resolver_opcao(self, opcao):
-        self.saindo = True
+        if opcao == 0:
+            self.saindo = True
+        else:
+            arquivo_mensagem = input('Digite o nome do arquivo com extensão: ')
+
+            # Verificamos se a mensagem existe
+            if not os.path.exists(arquivo_mensagem):
+                print('Opção inválida, mensagem não encontrada!')
+                return
+            else:
+                mensagem = None
+                # Recebemos a mensagem como uma string UTF-8, já que temos
+                # acentos rs
+                with io.open(arquivo_mensagem, mode='r', encoding="utf-8") as \
+                mensagem_:
+                    mensagem = mensagem_.read()
+                print('Mensagem encontrada.')
+
+                # Definimos o assunto do e-mail
+                assunto_email = input('Digite o assunto do e-mail: ')
+                print('Assunto do e-mail: "{}"'.format(assunto_email))
+                print('Mensagem do e-mail:')
+                print("""\"{}\"""".format(mensagem))
+                print()
+
+                # Confirmamos
+                confirmacao = input('Digite 1 para confirmar: ')
+                if confirmacao != 1:
+                    return
 
 
 # Aqui começa a execução do programa

@@ -33,8 +33,8 @@ class Estudante:
 
 
 class Veteranx(Estudante):
-    """Veteranx é a estrutura Estudante com a variável do número de
-    ingressantes que deseja apadrinhar e apelido"""
+    """Veteranx é a estrutura Estudante com as variáveis número de ingressantes
+    que deseja apadrinhar e apelido"""
 
     def __init__(self, dict_json):
         super().__init__(dict_json)
@@ -53,8 +53,8 @@ class Veteranx(Estudante):
 
 
 class Ingressante(Estudante):
-    """Ingressante é a estrutura Estudante que atualiza a variável de último
-    id"""
+    """Ingressante é a estrutura Estudante, coloquei apenas para
+    diferenciar(?)"""
 
     def __init__(self, dict_json):
         super().__init__(dict_json)
