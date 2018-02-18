@@ -1,8 +1,10 @@
+import time
 import json
 import random
 import os
 import io
 import smtplib
+import getpass
 from email.message import EmailMessage
 from datetime import datetime
 from estudantes import *
@@ -125,14 +127,14 @@ class Database:
             # Lemos o estado atual do banco de dados
             self.ler_banco()
 
-    def salvar_banco(self):
+    def salvar_banco(self, continuar=False):
         """Salva o banco de dados em um arquivo JSON, transformando estudantes
         em um dicionário com todas as informações relevantes.
 
         Esta função modifica o banco de dados na memória, o que significa
         que, se for utilizá-la durante a execução do programa, deverá
         transformar de volta os estudantes-dicionários para
-        estudantes-objeto"""
+        estudantes-objeto. Para isso, defina continuar como 'True'"""
         with open(self.FILE_NAME, 'w') as database_file:
             # Transformamos o dicionário (id, estudante objeto) em uma lista de
             # estudantes-dicionário
@@ -143,6 +145,14 @@ class Database:
             database_file.write(
                 json.JSONEncoder(indent='    ').encode(self.database)
             )
+
+            if continuar:
+                dicionario_para_estudante(
+                    self.database, NOME_DICT_VETERANXS
+                )
+                dicionario_para_estudante(
+                    self.database, NOME_DICT_INGRESSANTES
+                )
 
     def ler_banco(self):
         """Lê o arquivo JSON para a memória, transformando os dicionários que
@@ -354,6 +364,7 @@ class MenuAdicionarVeteranxs(Menu):
                 # Se não há existente, criamos
                 ultimo_id = database.database[NOME_ID_VETERANXS] + 1
                 respostas_dict['id'] = ultimo_id
+                respostas_dict['emails_recebidos'] = []
                 database.database[NOME_ID_VETERANXS] = ultimo_id
                 veteranx = Veteranx(respostas_dict)
                 # Adicionamos ao banco de dados
@@ -440,6 +451,7 @@ class MenuAdicionarIngressantes(Menu):
                 # Se não há existente, criamos
                 ultimo_id = database.database[NOME_ID_INGRESSANTES] + 1
                 respostas_dict['id'] = ultimo_id
+                respostas_dict['emails_recebidos'] = []
                 database.database[NOME_ID_INGRESSANTES] = ultimo_id
                 ingressante = Ingressante(respostas_dict)
                 # Adicionamos ao banco de dados
@@ -528,6 +540,12 @@ class MenuListarApadrinhamentos(Menu):
         self.saindo = True
         if opcao == 1:
             MenuApadrinhar()
+
+
+def contar_afilhadxs(estudante):
+    return len(
+        database.database[NOME_DICT_APADRINHAMENTOS].get(estudante.id, [])
+    )
 
 
 class MenuApadrinhar(Menu):
@@ -624,7 +642,7 @@ class MenuApadrinhar(Menu):
         for veteranx in lista_vet:
             # Conferimos se x veteranx já tem muitas(os) afilhadas(os)
             if veteranx.numero_ingressantes > 0:
-                atual = len(apadrinhamentos.get(veteranx.id, []))
+                atual = contar_afilhadxs(veteranx)
                 limite = veteranx.numero_ingressantes
                 if atual > limite:
                     print('{} ({}) possui muitos afilhados'.format(
@@ -698,7 +716,7 @@ class MenuApadrinhar(Menu):
             veteranx = None
             menor_quantidade = None
             for veteranx_ in veteranxs:
-                quantidade = len(apadrinhamentos.get(veteranx_.id, []))
+                quantidade = contar_afilhadxs(veteranx_)
                 if (menor_quantidade is None or quantidade < menor_quantidade):
                     menor_quantidade = quantidade
                     veteranx = veteranx_
@@ -727,6 +745,134 @@ class MenuApadrinhar(Menu):
         return numero_apadrinhado
 
 
+class Mensagem:
+    """Esta classe servirá para construir a mensagem do e-mail de maneira
+    fácil. Para utilizá-la, precisará, de início, definir um estudante."""
+    def __init__(self, mensagem_base):
+        self.mensagem_base = mensagem_base
+
+    def definir_estudante(self, estudante):
+        self.mensagem = self.mensagem_base
+        self.estudante = estudante
+
+        # Substituímos o nome
+        self.mensagem = self.mensagem.replace("{nome}", estudante.nome)
+
+        # Verificamos se é veteranx
+        self.is_veteranx = type(estudante) == Veteranx
+        if self.is_veteranx:
+            self.num_afilhadxs = contar_afilhadxs(estudante)
+
+            # Pulamos xs veteranxs sem afilhadxs
+            if self.num_afilhadxs == 0:
+                return False
+
+            # Criamos uma lista de apadrinhadxs
+            apadrinhadxs = []
+
+            for apadrinhadx_id in \
+                database.database[NOME_DICT_APADRINHAMENTOS][estudante.id]:
+                # Recebemos o objeto pelo ID
+                apadrinhadx = \
+                database.database[NOME_DICT_INGRESSANTES][apadrinhadx_id]
+                # Adicionamos x apadrinhadx à lista
+                apadrinhadxs.append(apadrinhadx)
+
+            # Construímos informações dxs afilhadxs
+            informacoes = u''
+            while len(apadrinhadxs) > 0:
+                apadrinhadx = apadrinhadxs.pop()
+                # Adicionamos dados básicos
+                dados = [apadrinhadx.nome, apadrinhadx.email]
+                # Adicionamos telefone se disponível
+                if len(apadrinhadx.telefone) > 0:
+                    dados.append(apadrinhadx.telefone)
+                # Adicionamos o facebook se disponível
+                if len(apadrinhadx.facebook_link) > 0:
+                    dados.append(apadrinhadx.facebook_link)
+
+                # Juntamos toda a string com uma nova linha (isso não deve
+                # ser feito para a última, pois depois de "{info_afilhada}"
+                # haverá um '\n')
+                if len(apadrinhadxs) == 0:
+                    informacoes += u', '.join(dados)
+                else:
+                    informacoes += u', '.join(dados) + u'\n'
+
+            # Substituimos as informações dxs afilhadxs
+            self.mensagem = self.mensagem.replace("{info_afilhada}",
+            informacoes)
+
+        # Se é ingressante, substituímos x veteranx
+        else:
+            veteranx = None
+            # Procuramos x veteranx
+            for veteranx_id, lista_ing in \
+                database.database[NOME_DICT_APADRINHAMENTOS].items():
+                # Verificamos se está na lista de apadrinhamento
+                if estudante.id in lista_ing:
+                    # Guardamos x veteranx
+                    veteranx = \
+                        database.database[NOME_DICT_VETERANXS][veteranx_id]
+
+            # Verificamos se um(a) veteranx foi definido
+            if veteranx == None:
+                # Pulamos o caso em que x estudante não foi apadrinhado
+                return False
+
+            # Construímos informações dxs afilhadxs
+            informacoes = u''
+            # Adicionamos dados básicos
+            dados = [veteranx.nome, veteranx.email]
+            # Adicionamos telefone se disponível
+            if len(veteranx.telefone) > 0:
+                dados.append(veteranx.telefone)
+            # Adicionamos e-mail se disponível
+            if len(veteranx.email) > 0:
+                dados.append(veteranx.email)
+
+            # Juntamos toda a string com uma nova linha
+            informacoes += u', '.join(dados)
+
+            # Substituimos as informações dxs afilhadxs
+            self.mensagem = self.mensagem.replace("{info_veterana}",
+            informacoes)
+
+        # Retornamos sucesso para gênero masculino ou feminino
+        return (self.estudante.genero == NOME_GENERO_MASC or
+            self.estudante.genero == NOME_GENERO_FEM)
+
+    def substituir_genero(self, keyword, subst_masc, subst_fem):
+        if self.estudante.genero == NOME_GENERO_MASC:
+            self.mensagem = self.mensagem.replace(keyword, subst_masc)
+        else: # a outra opção é necessariamente feminino, por construção
+            self.mensagem = self.mensagem.replace(keyword, subst_fem)
+
+        # Com return self é possível criar uma estrutura fácil de repetição
+        return self
+
+    def substituir_genero_quantidade(
+        self, keyword,
+        subst_masc_sing, subst_masc_plur,
+        subst_fem_sing, subst_fem_plur
+    ):
+        """Esta função está disponível apenas para estudante que é do tipo
+        Veteranx. Não fará nada caso contrário."""
+        if not self.is_veteranx:
+            return self
+
+        # No caso que é veteranx, contamos o número de afilhadxs
+        if self.num_afilhadxs > 1:
+            self.substituir_genero(keyword, subst_masc_plur, subst_fem_plur)
+        else:
+            self.substituir_genero(keyword, subst_masc_sing, subst_fem_sing)
+
+        return self
+
+    def terminar_mensagem(self):
+        return self.mensagem
+
+
 class MenuEmailApadrinhamento(Menu):
     def __init__(self):
         super().__init__(range(0, 2 + 1))
@@ -735,7 +881,8 @@ class MenuEmailApadrinhamento(Menu):
         # OBS: marquei com '#' o que eu utilizei nas mensagens que preparei
 
         print('Você precisa escrever um arquivo modelo para o e-mail. As '
-        'seguintes palavras-chave serão substituídas:')
+        'seguintes palavras-chave serão substituídas, plurais de acordo com a'
+        'quantidade de afilhadxs:')
         print('\tPalavra\t\tSubstituição no caso de masculino e feminino')
         print('"{info_veterana}"\t->\tLista de dados da madrinha/padrinho')
         print('"{info_afilhada}"\t->\tLista de dados de afilhadas(os)')#
@@ -772,32 +919,150 @@ class MenuEmailApadrinhamento(Menu):
         if opcao == 0:
             self.saindo = True
         else:
-            arquivo_mensagem = input('Digite o nome do arquivo com extensão: ')
+            print('\n\n')
+            print('O nome da mensagem preferencialmente NÃO deve possuir '
+            'espaços\n')
+            print('O nome da mensagem deve ser um identificador único. Isso '
+            'significa que, se alguém já recebeu a mensagem '
+            '"mensagem_veteranx.txt", ao tentar enviá-la novamente, este '
+            'alguém não irá receber novamente a mensagem, mesmo que ela tenha '
+            'sido alterada.')
+            nome_arquivo = input('Digite o nome do arquivo (com extensão): ')
 
             # Verificamos se a mensagem existe
-            if not os.path.exists(arquivo_mensagem):
+            if not os.path.exists(nome_arquivo):
                 print('Opção inválida, mensagem não encontrada!')
                 return
             else:
-                mensagem = None
                 # Recebemos a mensagem como uma string UTF-8, já que temos
                 # acentos rs
-                with io.open(arquivo_mensagem, mode='r', encoding="utf-8") as \
-                mensagem_:
-                    mensagem = mensagem_.read()
+                with io.open(nome_arquivo, mode='r', encoding="utf-8") as \
+                arquivo_mensagem:
+                    mensagem_base = arquivo_mensagem.read()
+                    self.mensagem = Mensagem(mensagem_base)
                 print('Mensagem encontrada.')
 
                 # Definimos o assunto do e-mail
-                assunto_email = input('Digite o assunto do e-mail: ')
-                print('Assunto do e-mail: "{}"'.format(assunto_email))
+                self.assunto = input('Digite o assunto do e-mail: ')
+                print('Assunto do e-mail: "{}"'.format(self.assunto))
                 print('Mensagem do e-mail:')
-                print("""\"{}\"""".format(mensagem))
+                print(u'"{}"'.format(self.mensagem.mensagem_base))
                 print()
 
                 # Confirmamos
-                confirmacao = input('Digite 1 para confirmar: ')
-                if confirmacao != 1:
+                confirmacao = input('Digite "-1" para confirmar: ')
+                if not confirmacao.endswith('-1'):
+                    print('Retornando...')
                     return
+
+                # Definimos para quem gostaríamos de enviar
+                if opcao == 1:
+                    self.lista = NOME_DICT_VETERANXS
+                elif opcao == 2:
+                    self.lista = NOME_DICT_INGRESSANTES
+
+                # Formatamos e enviamos os e-mails
+                self.formatar_e_enviar(nome_arquivo)
+                self.saindo = True
+
+    def formatar_e_enviar(self, nome_arquivo):
+        """Esta função irá criar um construtor, salvando a mensagem original e
+        substituindo de acordo com cada estudante definido. Substituirá com
+        base no ano de ingresso (calourx ou veteranx), no gênero e no número de
+        afilhadxs se tiver."""
+
+        # Pedimos credenciais
+        sender = input('De qual e-mail em students.ic.unicamp.br você irá '
+        'enviar? ')
+        if not sender.endswith('@students.ic.unicamp.br'):
+            sender = sender + '@students.ic.unicamp.br'
+
+        password = getpass.getpass(prompt='Senha: ')
+
+        # Confirmamos
+        print('Irá enviar de "{}"?'.format(sender))
+        confirmar = input('Digite -1 para confirmar: ')
+        if not confirmar.endswith('-1'):
+            return
+
+        for estudante in database.database[self.lista].values():
+            # Pulamos xs estudantes que já receberam este e-mail
+            if nome_arquivo in estudante.emails_recebidos:
+                print('Estudante {} ({}) ignorado por já ter recebido o '
+                'e-mail'.format(estudante.nome, estudante.id))
+                continue
+
+            # Fazemos a definição inicial (nome, informações de
+            # padrinho/madrinha ou afilhado(s)/afilhadas(s))
+            if not self.mensagem.definir_estudante(estudante):
+                print('Estudante {} ({}) ignorado por não satisfazer os '
+                'requisitos'.format(estudante.nome, estudante.id))
+
+            # Substituímos para masculino
+            self.mensagem.substituir_genero(
+                "{madrinha}", 'padrinho', 'madrinha'
+            ).substituir_genero(
+                "{afilhada}", 'afilhado', 'afilhada'
+            ).substituir_genero_quantidade(
+                "{afilhada(s)}",
+                'afilhado', 'afilhados', 'afilhada', 'afilhadas'
+            ).substituir_genero(
+                "{veterana}", 'veterano', 'veterana'
+            ).substituir_genero(
+                "{caloura}", 'calouro', 'caloura'
+            ).substituir_genero(
+                "{ela}", 'ele', 'ela'
+            ).substituir_genero(
+                "{elas}", 'eles', 'elas'
+            ).substituir_genero_quantidade(
+                "{ela(s)}",
+                'ele', 'eles', 'ela', 'elas'
+            ).substituir_genero(
+                "{sua}", 'seu', 'sua'
+            ).substituir_genero(
+                "{suas}", 'seus', 'suas'
+            ).substituir_genero_quantidade(
+                "{sua(s)}",
+                'seu', 'seus', 'sua', 'suas'
+            ).substituir_genero(
+                "{uma}", 'um', 'uma'
+            ).substituir_genero(
+                "{a}", 'o', 'a'
+            ).substituir_genero(
+                "{ao}", 'ao', u'à'
+            ).substituir_genero(
+                "{aos}", 'aos', u'às'
+            ).substituir_genero_quantidade(
+                "{ao(s)}",
+                'ao', 'aos', u'à', u'às'
+            ).substituir_genero(
+                "{as}", 'os', 'as'
+            ).substituir_genero_quantidade(
+                "{a(s)}",
+                'o', 'os', 'a', 'as'
+            )
+
+            print('Mensagem preparada para {}'.format(estudante.email))
+
+            # Agora enviamos o e-mail
+            try:
+                enviar_email(
+                    sender, password,
+                    estudante.email,
+                    self.assunto,
+                    self.mensagem.terminar_mensagem()
+                )
+                estudante.emails_recebidos.append(nome_arquivo)
+                print('Enviado para {}. Esperando 3 '
+                'segundos'.format(estudante.email))
+                time.sleep(3)
+            except:
+                # Paramos de enviar caso ocorrer algum erro
+                database.salvar_banco()
+                print('Falha ao enviar para {}'.format(estudante.email))
+                raise
+
+        database.salvar_banco(continuar=True)
 
 
 # Aqui começa a execução do programa

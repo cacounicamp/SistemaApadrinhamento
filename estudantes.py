@@ -4,6 +4,7 @@ class Estudante:
     def __init__(self, dict_json):
         # Recebemos o dicionário que representa apenas uma pessoa
         self.id = dict_json['id']
+        self.emails_recebidos = dict_json['emails_recebidos']
         self.atualizar(dict_json)
 
     def atualizar(self, dict_atualizado):
@@ -28,7 +29,8 @@ class Estudante:
             "email": self.email,
             "curso": self.curso,
             "telefone": self.telefone,
-            "facebook_link": self.facebook_link
+            "facebook_link": self.facebook_link,
+            "emails_recebidos": self.emails_recebidos
         }
 
 
