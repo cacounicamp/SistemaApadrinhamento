@@ -864,7 +864,7 @@ class MenuEmailApadrinhamento(Menu):
                   self.mensagem.terminar_mensagem()
                )
                estudante.emails_recebidos.append(nome_arquivo)
-               print('Enviado para {}. Esperando 2 '
+               print('Enviado para {}. Esperando 4 '
                'segundos'.format(estudante.email))
 
                # Se tudo ocorreu bem e é um(a) veteranx...
@@ -879,8 +879,8 @@ class MenuEmailApadrinhamento(Menu):
                # dados com relação aos e-mails enviados
                database.salvar_banco()
 
-               # Esperamos 2 segundos entre mensagens
-               time.sleep(2)
+               # Esperamos 4 segundos entre mensagens
+               time.sleep(4)
             except:
                # Paramos de enviar caso ocorrer algum erro
                database.salvar_banco()
