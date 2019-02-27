@@ -110,6 +110,10 @@ Confira se as mensagens estão corretas (é necessário escrever mensagens
 utilizando o formato do programa -- para preencher corretamente os gêneros e
 plural) antes de serem enviadas e tome cuidado com a senha do e-mail utilizado.
 
+*Observação importante:* a conta do `students.ic.unicamp.br` para enviar o
+e-mail deve possuir senha ASCII (não possuir caracteres especiais como 'ç',
+'ã').
+
 ##### Configurando a mensagem de apadrinhamento
 
 `TODO`

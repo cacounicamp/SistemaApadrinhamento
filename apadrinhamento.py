@@ -33,9 +33,10 @@ def enviar_email(sender, password, recipient, subject, body):
       server = smtplib.SMTP("smtp.students.ic.unicamp.br", 587)
       server.ehlo()
       server.starttls()
+      # OBSERVAÇÃO: A SENHA NÃO DEVE POSSUIR CARACTERES ESPECIAIS (apenas ASCII)
       server.login(sender, password)
       server.send_message(message)
-      server.close()
+      server.quit()
       print("E-mail enviado!")
    except:
       print("Falha ao enviar o email")
@@ -774,7 +775,7 @@ class MenuEmailApadrinhamento(Menu):
 
          # Pedimos credenciais
          sender = input('De qual e-mail em students.ic.unicamp.br você irá '
-         'enviar? ')
+         'enviar? (A senha deve ser em ASCII) ')
          if not sender.endswith('@students.ic.unicamp.br'):
             sender = sender + '@students.ic.unicamp.br'
 
